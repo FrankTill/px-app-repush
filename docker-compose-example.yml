@@ -2,15 +2,13 @@ services:
   px-app-repush:
     build: .
     ports:
-      target: 5000
-      published: 5000
+      - "5020:5000"
     volumes:
-      - type: bind
-        source: ./.env
-        target: /app/.env
-      - type: bind
-        source: ./apps.json
-        target: /app/apps.json
+      - ./.env:/app/.env
+      - ./apps.json:/app/apps.json
+      - ./csv_output:/app/csv_output
+      - ./logs:/app/logs
+      - ./ssh_keys:/app/ssh_keys:ro
     env_file:
       - .env
     healthcheck:

@@ -12,14 +12,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 COPY requirements.txt .
 
 # Install dependencies with --no-cache-dir to reduce image size
-RUN pip install --no-cache-dir --user appuser -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY --chown=appuser:appuser . .
+
+# Set HOME for the non-root user
+ENV HOME=/home/appuser
 
 # Switch to non-root user
 USER appuser
 
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+# Use python -m gunicorn to ensure it finds the executable
+CMD ["python", "-m", "gunicorn", "--bind", "0.0.0.0:5000", "app:app"]

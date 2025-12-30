@@ -4,11 +4,27 @@
 
 To run in production:
 
-1. Build Docker image: `docker build -t px-app-repush .`
-2. Run with environment: `docker run -p 5000:5000 --env-file .env px-app-repush`
+1. Create required directories:
+   ```bash
+   mkdir -p csv_output logs
+   ```
 
-Or use Docker Compose: `docker-compose up --build`
+2. Build and run with Docker Compose:
+   ```bash
+   docker compose -f docker-compose-example.yml up --build
+   ```
 
-Or use gunicorn directly: `gunicorn --bind 0.0.0.0:5000 app:app`
+3. Access the app at http://localhost:5020
+
+Or use Docker directly:
+```bash
+docker build -t px-app-repush .
+docker run -p 5020:5000 --env-file .env -v ./csv_output:/app/csv_output -v ./logs:/app/logs px-app-repush
+```
+
+Or use gunicorn directly:
+```bash
+gunicorn --bind 0.0.0.0:5000 app:app
+```
 
 Ensure .env is set with production values.

@@ -6,7 +6,6 @@ import io
 import json
 import logging
 import os
-import socket
 from logging.handlers import TimedRotatingFileHandler
 from threading import Lock
 
@@ -21,7 +20,7 @@ app = Flask(__name__)
 
 # Set up logging to file with 30-day retention
 handler = TimedRotatingFileHandler(
-    "app.log", when="midnight", interval=1, backupCount=30
+    "/app/logs/app.log", when="midnight", interval=1, backupCount=30
 )
 handler.setLevel(logging.INFO)
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
@@ -49,14 +48,10 @@ sydney_tz = pytz.timezone("Australia/Sydney")
 def index():
     if request.method == "POST":
         # Log client info
-        client_ip = request.remote_addr
-        try:
-            client_hostname = socket.gethostbyaddr(client_ip)[0]
-        except socket.herror:
-            client_hostname = "Unknown"
-        app.logger.info(
-            "Form submitted from IP: %s, Hostname: %s", client_ip, client_hostname
-        )
+        # In Docker, request.remote_addr may be the Docker gateway IP
+        # Check X-Real-IP header if behind a proxy
+        client_ip = request.headers.get("X-Real-IP", request.remote_addr)
+        app.logger.info("Form submitted from IP: %s", client_ip)
 
         # Get form data
         push_time_str = request.form.get("push_time")
@@ -79,26 +74,28 @@ def index():
             # Generate filename
             timestamp = push_time.strftime("%Y%m%d%H%M")
             filename = f"push_app-prov-{timestamp}.csv"
+            csv_path = f"/app/csv_output/{filename}"
 
             # Check for uniqueness (simple check, in production use better method)
             with filename_lock:
                 counter = 1
-                while os.path.exists(filename):
+                while os.path.exists(csv_path):
                     filename = f"push_app-prov-{timestamp}-{counter}.csv"
+                    csv_path = f"/app/csv_output/{filename}"
                     counter += 1
 
             # Generate CSV content
             csv_content = generate_csv(app_entries)
 
             # Save locally first
-            with open(filename, "w", encoding="utf-8", newline="") as file:
+            with open(csv_path, "w", encoding="utf-8", newline="") as file:
                 file.write(csv_content)
 
             # Upload via SFTP
-            upload_to_sftp(filename)
+            upload_to_sftp(csv_path)
 
             # Remove local file after successful upload
-            os.remove(filename)
+            os.remove(csv_path)
 
             app.logger.info("CSV file generated and uploaded: %s", filename)
             flash(f"CSV generated and uploaded: {filename}")
@@ -133,9 +130,9 @@ def upload_to_sftp(filename):
         transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
         transport.connect(username=SFTP_USERNAME, pkey=key)
         sftp = paramiko.SFTPClient.from_transport(transport)
-        sftp.put(filename, os.path.join(SFTP_REMOTE_PATH, filename))
+        sftp.put(filename, os.path.join(SFTP_REMOTE_PATH, os.path.basename(filename)))
     except Exception as e:
-        app.logger.error(f"SFTP upload failed: {str(e)}")
+        app.logger.error("SFTP upload failed: %s", str(e))
         raise
     finally:
         if sftp:
