@@ -111,6 +111,11 @@ def index():
     )
 
 
+@app.route("/health")
+def health():
+    return "OK", 200
+
+
 def generate_csv(app_entries):
     output = io.StringIO()
     writer = csv.writer(output)
