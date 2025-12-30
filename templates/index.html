@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Push Portal</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Generate App Push CSV</h1>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <ul>
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+    <form id="pushForm" method="POST">
+        <label for="push_time">Push Time (Sydney time, format: YYYY-MM-DD HH:MM):</label>
+        <input type="text" id="push_time" name="push_time" required pattern="\d{4}-\d{2}-\d{2} \d{2}:\d{2}" placeholder="2025-12-30 10:00">
+        <br><br>
+        
+        <div id="tids">
+            <div class="tid-entry">
+                <label>TID:</label>
+                <input type="text" name="tid[]" required>
+                <button type="button" class="add-app">Add App</button>
+                <button type="button" class="remove-tid">Remove TID</button>
+                <div class="apps"></div>
+            </div>
+        </div>
+        <button type="button" id="add-tid">Add TID</button>
+        <br><br>
+        <button type="submit">Generate CSV</button>
+    </form>
+
+    <script>
+        const appsData = JSON.parse('{{ apps_data|tojson }}');
+        $(document).ready(function() {
+            // Set default time to Sydney now
+            $('#push_time').val('{{ default_time_str }}');
+
+            // No restriction on minutes
+
+            // Add TID
+            $('#add-tid').click(function() {
+                const tidEntry = $('.tid-entry').first().clone();
+                tidEntry.find('.apps').empty();
+                $('#tids').append(tidEntry);
+            });
+
+            // Remove TID
+            $(document).on('click', '.remove-tid', function() {
+                if ($('.tid-entry').length > 1) {
+                    $(this).parent('.tid-entry').remove();
+                } else {
+                    alert('Cannot remove the only TID.');
+                }
+            });
+
+            // Update names when TID changes
+            $(document).on('input', 'input[name="tid[]"]', function() {
+                const tid = $(this).val();
+                const appsDiv = $(this).siblings('.apps');
+                appsDiv.find('select[name^="versions_"]').each(function() {
+                    $(this).attr('name', `versions_${tid}[]`);
+                });
+                appsDiv.find('input[name^="packages_"]').each(function() {
+                    $(this).attr('name', `packages_${tid}[]`);
+                });
+                appsDiv.find('input[name^="force_"]').each(function() {
+                    $(this).attr('name', `force_${tid}[]`);
+                });
+            });
+
+            // Add App to TID
+            $(document).on('click', '.add-app', function() {
+                const appsDiv = $(this).siblings('.apps');
+                const tid = $(this).parent().find('input[name="tid[]"]').val();
+                const appEntry = `
+                    <div class="app-entry">
+                        <select class="app-select" required>
+                            <option value="">Select App</option>
+                            {% for app in apps_data %}
+                                <option value="{{ app.display_name }}">{{ app.display_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <select class="version-select" name="versions_${tid}[]" required disabled>
+                            <option value="">Select Version</option>
+                        </select>
+                        <input type="hidden" name="packages_${tid}[]" value="">
+                        <input type="hidden" name="force_${tid}[]" value="False">
+                        <label><input type="checkbox" class="force-checkbox"> Force Update</label>
+                        <button type="button" class="remove-app">Remove</button>
+                    </div>
+                `;
+                appsDiv.append(appEntry);
+            });
+
+            // When app selected, populate versions and set package
+            $(document).on('change', '.app-select', function() {
+                const selectedDisplay = $(this).val();
+                const app = appsData.find(a => a.display_name === selectedDisplay);
+                if (app) {
+                    const versionSelect = $(this).siblings('.version-select');
+                    const packageInput = $(this).siblings('input[type="hidden"]');
+                    versionSelect.empty().append('<option value="">Select Version</option>');
+                    app.versions.forEach(version => {
+                        versionSelect.append(`<option value="${version}">${version}</option>`);
+                    });
+                    versionSelect.prop('disabled', false);
+                    packageInput.val(app.package_name);
+                }
+            });
+
+            // When force checkbox changes, set hidden input
+            $(document).on('change', '.force-checkbox', function() {
+                const hiddenInput = $(this).closest('label').prev('input[type="hidden"]');
+                hiddenInput.val($(this).is(':checked') ? 'True' : 'False');
+            });
+
+            // Remove App
+            $(document).on('click', '.remove-app', function() {
+                $(this).parent().remove();
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+services:
+  px-app-repush:
+    build: .
+    ports:
+      target: 5000
+      published: 5000
+    volumes:
+      - type: bind
+        source: ./.env
+        target: /app/.env
+      - type: bind
+        source: ./apps.json
+        target: /app/apps.json
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s

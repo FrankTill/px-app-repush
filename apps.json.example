@@ -1,0 +1,17 @@
+[
+  {
+    "display_name": "Linkly Payment",
+    "package_name": "com.linkly.payment",
+    "versions": [
+      "1.6.21.26881-P",
+      "1.7.13.30943-P"
+    ]
+  },
+  {
+    "display_name": "Linkly Connect",
+    "package_name": "com.linkly.connect.linkly",
+    "versions": [
+      "1.6.3-P-linkly"
+    ]
+  }
+]
